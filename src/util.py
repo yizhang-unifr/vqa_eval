@@ -4,7 +4,9 @@ from contextlib import ExitStack
 from pathlib import Path
 
 import pandas as pd
-
+from PIL import Image
+from io import BytesIO
+import base64
 
 
 class VisualQA():
@@ -30,8 +32,26 @@ def to_df(results, image_ids, image_paths, root_path=Path(__file__).parent.paren
     df = pd.DataFrame(results, columns=["Result"])
     df["Image ID"] = image_ids
     df["Image Path"] = list(map(lambda x: x.relative_to(root_path) ,image_paths))
-    df = df[["Image ID", "Image Path", "Result"]]
+    df["Images"] = list(map(get_thumbnail, image_paths))
+    df = df[["Image ID", "Image Path", "Images", "Result"]]
+    
     return df
+
+def get_thumbnail(path):
+    i = Image.open(path)
+    i.thumbnail((150, 150), Image.LANCZOS)
+    return i
+
+def image_base64(im):
+    if isinstance(im, str):
+        im = get_thumbnail(im)
+    with BytesIO() as buffer:
+        im.save(buffer, 'jpeg')
+        return base64.b64encode(buffer.getvalue()).decode()
+
+def image_formatter(im):
+    return f'<img src="data:image/jpeg;base64,{image_base64(im)}">'
+
 
 if __name__ == "__main__":
     visualqa = VisualQA()
@@ -44,4 +64,4 @@ if __name__ == "__main__":
     results = visualqa.extract(image_paths, query)
     df = to_df(results, image_ids, image_paths)
     print(query)
-    print(df)
+    
